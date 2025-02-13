@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb"); 
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 
 const app = express();
@@ -26,14 +26,22 @@ async function run() {
     console.log("Connected to MongoDB!");
 
     const foodsCollection = client.db("restaurant").collection("foods");
+    const purchaseCollection = client
+      .db("restaurant")
+      .collection("food_purchase");
 
-    // Get all foods
+    // ✅ Get All Foods
     app.get("/foods", async (req, res) => {
-      const result = await foodsCollection.find().toArray();
-      res.send(result);
+      try {
+        const result = await foodsCollection.find().toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching foods:", error);
+        res.status(500).send({ error: "Failed to fetch foods" });
+      }
     });
 
-    // Get food by ID
+    // ✅ Get a Single Food by ID
     app.get("/foods/:id", async (req, res) => {
       const id = req.params.id;
       try {
@@ -42,6 +50,60 @@ async function run() {
         res.send(result);
       } catch (error) {
         res.status(400).send({ error: "Invalid ID format" });
+      }
+    });
+
+    // ✅ Get Foods Added by Logged-in User
+    app.get("/my-foods", async (req, res) => {
+      try {
+        const userEmail = req.query.email; // Get user email from query
+        let query = {};
+        if (userEmail) {
+          query = { sellerEmail: userEmail }; // Ensure this matches the field in your DB
+        }
+        const result = await foodsCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching user foods:", error);
+        res.status(500).send({ error: "Failed to fetch user foods" });
+      }
+    });
+
+    // ✅ Add a New Food Item
+    app.post("/foods", async (req, res) => {
+      try {
+        const newFood = req.body;
+        const result = await foodsCollection.insertOne(newFood);
+
+        if (result.insertedId) {
+          res.send({ success: true, message: "Food item added successfully!" });
+        } else {
+          res
+            .status(500)
+            .send({ success: false, message: "Failed to add food item" });
+        }
+      } catch (error) {
+        console.error("Error adding food item:", error);
+        res.status(500).send({ success: false, message: "Server error" });
+      }
+    });
+
+    // ✅ Foods Purchase (Order Placement)
+    app.post("/food-purchase", async (req, res) => {
+      try {
+        const purchase = req.body;
+        const result = await purchaseCollection.insertOne(purchase);
+
+        if (result.insertedId) {
+          res.send({ success: true, message: "Order placed successfully!" });
+        } else {
+          res
+            .status(500)
+            .send({ success: false, message: "Failed to place order" });
+        }
+      } catch (error) {
+        console.error("Error placing order:", error);
+        res.status(500).send({ success: false, message: "Server error" });
       }
     });
   } catch (error) {
